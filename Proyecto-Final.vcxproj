@@ -114,15 +114,15 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>D:\ITESO\Cripto\Proyecto-Final\chilkat-9.5.0-x86_64-vc2022\chilkat-9.5.0-x86_64-vc2022\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\ITESO\Cripto\Proyecto-Final\chilkat-9.5.0-x86_64-vc2022\chilkat-9.5.0-x86_64-vc2022\include;D:\ITESO\Cripto\libsodium-temp;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>D:\ITESO\Cripto\Proyecto-Final\chilkat-9.5.0-x86_64-vc2022\chilkat-9.5.0-x86_64-vc2022\libs;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>ChilkatDbg_x64.lib;ChilkatDbgDll_x64.lib;ChilkatRel_x64.lib;ChilkatRelDll_x64.lib;crypt32.lib;ws2_32.lib;dnsapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>D:\ITESO\Cripto\Proyecto-Final\chilkat-9.5.0-x86_64-vc2022\chilkat-9.5.0-x86_64-vc2022\libs;D:\ITESO\Cripto\libsodium-temp;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libsodium.lib;ChilkatDbg_x64.lib;ChilkatDbgDll_x64.lib;ChilkatRel_x64.lib;ChilkatRelDll_x64.lib;crypt32.lib;ws2_32.lib;dnsapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

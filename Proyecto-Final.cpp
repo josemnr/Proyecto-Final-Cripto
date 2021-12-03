@@ -1,9 +1,18 @@
 // Proyecto-Final.cpp : Este archivo contiene la función "main". La ejecución del programa comienza y termina ahí.
 //
 
+#include <string>
 #include <iostream>
 #include <stdlib.h>
-#include <string>
+
+//libsodium
+#include "sodium.h"
+#include <fstream>
+#include <cstring>
+#include <iomanip>
+#define MESSAGE_LEN 4
+#define CHUNK_SIZE 4096
+#define MESSAGE (const unsigned char *) "test"
 
 //libraries related to signatures
 #include <CkRsa.h>
@@ -48,23 +57,108 @@ void ChilkatSample(void)
 	cout << glob.lastErrorText() << "\r\n";
 }*/
 
-void FileSigning() {
-	cout << "\nYou are in op 4\n\n";
-	CkPrivateKey pkey;
+static int encryptFile(const unsigned char key[crypto_secretstream_xchacha20poly1305_KEYBYTES]) {
 
+		string fileToEncryptPath;
+		string EncryptFilePath;
+
+		cout << "\nIngresa la ruta del archivo a encriptar:"; // ./archivos/plain_text.txt
+		cin >> fileToEncryptPath;
+
+		cout << "\nIngresa la ruta destino del archivo encriptado:"; // ./archivos/encryptedFile
+		cin >> EncryptFilePath;
+
+		unsigned char  buf_in[CHUNK_SIZE];
+		unsigned char  buf_out[CHUNK_SIZE + crypto_secretstream_xchacha20poly1305_ABYTES];
+		unsigned char  header[crypto_secretstream_xchacha20poly1305_HEADERBYTES];
+		crypto_secretstream_xchacha20poly1305_state st;
+		FILE* fp_t, * fp_s;
+		unsigned long long out_len;
+		size_t         rlen;
+		int            eof;
+		unsigned char  tag;
+		fp_s = fopen(fileToEncryptPath.c_str(), "rb");
+		fp_t = fopen(EncryptFilePath.c_str(), "wb");
+		crypto_secretstream_xchacha20poly1305_init_push(&st, header, key);
+		fwrite(header, 1, sizeof header, fp_t);
+		do {
+			rlen = fread(buf_in, 1, sizeof buf_in, fp_s);
+			eof = feof(fp_s);
+			tag = eof ? crypto_secretstream_xchacha20poly1305_TAG_FINAL : 0;
+			crypto_secretstream_xchacha20poly1305_push(&st, buf_out, &out_len, buf_in, rlen,
+				NULL, 0, tag);
+			fwrite(buf_out, 1, (size_t)out_len, fp_t);
+		} while (!eof);
+		fclose(fp_t);
+		fclose(fp_s);
+		return 0;
+}
+
+
+static int
+decryptFile(const unsigned char key[crypto_secretstream_xchacha20poly1305_KEYBYTES]) {
+	string fileToDecryptPath;
+	string DecryptFilePath;
+
+	cout << "\nIngresa la ruta del archivo a desencriptar:"; // ./archivos/encryptedFile
+	cin >> fileToDecryptPath;
+
+	cout << "\nIngresa la ruta destino del archivo desencriptado:"; // ./archivos/decryptedFile
+	cin >> DecryptFilePath;
+
+	unsigned char  buf_in[CHUNK_SIZE + crypto_secretstream_xchacha20poly1305_ABYTES];
+	unsigned char  buf_out[CHUNK_SIZE];
+	unsigned char  header[crypto_secretstream_xchacha20poly1305_HEADERBYTES];
+	crypto_secretstream_xchacha20poly1305_state st;
+	FILE* fp_t, * fp_s;
+	unsigned long long out_len;
+	size_t         rlen;
+	int            eof;
+	int            ret = -1;
+	unsigned char  tag;
+	fp_s = fopen(fileToDecryptPath.c_str(), "rb");
+	fp_t = fopen(DecryptFilePath.c_str(), "wb");
+	fread(header, 1, sizeof header, fp_s);
+	if (crypto_secretstream_xchacha20poly1305_init_pull(&st, header, key) != 0) {
+		goto ret; // incomplete header 
+	}
+	do {
+		rlen = fread(buf_in, 1, sizeof buf_in, fp_s);
+		eof = feof(fp_s);
+		if (crypto_secretstream_xchacha20poly1305_pull(&st, buf_out, &out_len, &tag,
+			buf_in, rlen, NULL, 0) != 0) {
+			goto ret; // corrupted chunk
+		}
+		if (tag == crypto_secretstream_xchacha20poly1305_TAG_FINAL && !eof) {
+			goto ret; // premature end (end of file reached before the end of the stream) 
+		}
+		fwrite(buf_out, 1, (size_t)out_len, fp_t);
+	} while (!eof);
+	ret = 0;
+ret:
+	fclose(fp_t);
+	fclose(fp_s);
+	return ret;
+}
+
+
+void fileSigning() {
 	// Load the private key from an PEM file:
-	bool success = pkey.LoadPemFile("D:/ITESO/Cripto/Proyecto-Final/llaves/private_key.pem");
+	CkPrivateKey pkey;
+	string privateKeyPath;
+	cout << "\nIngresa la ruta de tu llave privada:"; // ./llaves/private_key.pem
+	cin >> privateKeyPath;
+	bool success = pkey.LoadPemFile(privateKeyPath.c_str());
 	if (success != true) {
-		std::cout << pkey.lastErrorText() << "\r\n";
+		cout << pkey.lastErrorText() << "\r\n" << flush;
 		return;
 	}
 
-	CkRsa rsa;
-
 	// Import the private key into the RSA component:
+	CkRsa rsa;
 	success = rsa.ImportPrivateKeyObj(pkey);
 	if (success != true) {
-		std::cout << rsa.lastErrorText() << "\r\n";
+		cout << rsa.lastErrorText() << "\r\n" << flush;
 		return;
 	}
 
@@ -73,33 +167,38 @@ void FileSigning() {
 
 	// Load the file to be signed.
 	CkBinData bdFileData;
-	success = bdFileData.LoadFile("D:/ITESO/Cripto/Proyecto-Final/llaves/plain_text.txt");
+	string plainTextPath;
+	cout << "\nIngresa la ruta del texto a firmar:"; // ./archivos/plain_text.txt
+	cin >> plainTextPath;
+	success = bdFileData.LoadFile(plainTextPath.c_str());
 
 	CkBinData bdSig;
 	success = rsa.SignBd(bdFileData, "sha1", bdSig);
 	if (success != true) {
-		cout << rsa.lastErrorText() << "\r\n";
+		cout << rsa.lastErrorText() << "\r\n" << flush;
 		return;
 	}
 
 	// Save the binary signature to a file.
-	success = bdSig.WriteFile("D:/ITESO/Cripto/Proyecto-Final/llaves/binary.txt");
+	string binarySignaturePath;
+	cout << "\nIngresa la ruta destino de la firma binaria:"; // ./llaves/bin_key.txt
+	cin >> binarySignaturePath;
+	success = bdSig.WriteFile(binarySignaturePath.c_str());
 	if (success != true) {
-		cout << "Failed to write signature.sig." << "\r\n";
+		cout << "\nError al crear firma binaria" << "\r\n\n" << flush;
 		return;
 	}
-
-	cout << "Success." << "\r\n";
-
+	cout << "\nLa firma binaria fue creada con exito." << "\r\n\n" << flush;
 }
 
-void VerifySignature() {
-	cout << "\nYou are in op 5\n\n";
-
+void verifySignature() {
 	CkPublicKey pubKey;
+	string publicKeyPath;
 
 	// Load the public key from an PEM file:
-	bool success = pubKey.LoadOpenSslPemFile("D:/ITESO/Cripto/Proyecto-Final/llaves/public_key.pem");
+	cout << "\nIngresa la ruta de tu llave publica:"; // ./llaves/public_key.pem
+	cin >> publicKeyPath;
+	bool success = pubKey.LoadOpenSslPemFile(publicKeyPath.c_str());
 	if (success != true) {
 		cout << pubKey.lastErrorText() << "\r\n" << flush;
 		return;
@@ -107,11 +206,17 @@ void VerifySignature() {
 
 	// Load the data of the original file that was signed.
 	CkBinData bdFileData;
-	success = bdFileData.LoadFile("D:/ITESO/Cripto/Proyecto-Final/llaves/plain_text.txt");
+	string plainTextPath;
+	cout << "\nIngresa la ruta del texto firmado:"; // ./archivos/plain_text.txt
+	cin >> plainTextPath;
+	success = bdFileData.LoadFile(plainTextPath.c_str());
 
 	// Load the signature.
 	CkBinData bdSig;
-	success = bdSig.LoadFile("D:/ITESO/Cripto/Proyecto-Final/llaves/firma_binaria.txt");
+	string binarySignaturePath;
+	cout << "\nIngresa la ruta de la firma binaria:"; // ./llaves/bin_key.txt
+	cin >> binarySignaturePath;
+	success = bdSig.LoadFile(binarySignaturePath.c_str());
 
 	CkRsa rsa;
 
@@ -127,18 +232,22 @@ void VerifySignature() {
 
 	success = rsa.VerifyBd(bdFileData, "sha1", bdSig);
 	if (success != true) {
-		cout << "The signature was invalid." << "\r\n\n" << flush;
+		cout << "\nFirma invalida" << "\r\n\n" << flush;
 		return;
 	}
 
-	cout << "The signature was verified." << "\r\n\n" << flush;
+	cout << "\nFirma verificada." << "\r\n\n" << flush;
 }
 
 void Menu() {
+
+	unsigned char key[crypto_secretstream_xchacha20poly1305_KEYBYTES];
+	crypto_secretstream_xchacha20poly1305_keygen(key);
+
 	int choice;
 	do {
 		cout << "Selecciona una opcion valida del menu:\n";
-		cout << "1. Generacion y Recuperacion de Claves desde 1 archivo\n2. Cifrado de Archivos\n3. Descifrado de Archivos\n4. Firma de Archivos\n5. Verificacion de Firma de Archivos\n6. Salir\n";
+		cout << "1. Generacion y Recuperacion de Claves desde 1 archivo\n2. Cifrado de Archivos\n3. Descifrado de Archivos\n4. Firma de Archivos\n5. Verificacion de Firma de Archivos\n6. Salir\n\n";
 		cin >> choice;
 		switch (choice) {
 		case 1:
@@ -147,20 +256,32 @@ void Menu() {
 			system("CLS");
 			break;
 		case 2:
-			cout << "\nYou are in op 2\n\n";
+			if (encryptFile(key) != 0) {
+				cout << "\nError al encriptar el archivo\n\n" << flush;
+			}
+			else {
+				cout << "\nArchivo encriptado con exito\n\n" << flush;
+			}
 			system("PAUSE");
 			system("CLS");
 			break;
 		case 3:
-			cout << "\nYou are in op 3\n\n";
+			if (decryptFile(key) != 0) {
+				cout << "\nError al desencriptar el archivo\n\n" << flush;
+			}
+			else {
+				cout << "\nArchivo desencriptado con exito\n\n" << flush;
+			}
 			system("PAUSE");
 			system("CLS");
 			break;
 		case 4:
-			FileSigning();
+			fileSigning();
+			system("PAUSE");
+			system("CLS");
 			break;
 		case 5:
-			VerifySignature();
+			verifySignature();
 			system("PAUSE");
 			system("CLS");
 			break;
@@ -175,6 +296,11 @@ void Menu() {
 }
 
 int main() {
+
+	if (sodium_init() < 0) {
+		return -1;
+	}
+
 	Menu();
 }
 
