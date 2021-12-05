@@ -18,7 +18,7 @@
 #include <CkRsa.h>
 #include <CkBinData.h>
 
-//libraries to signing files
+//library to signing files
 #include <CkPrivateKey.h>
 
 //libraries to verify signature
@@ -57,6 +57,40 @@ void ChilkatSample(void)
 	cout << glob.lastErrorText() << "\r\n";
 }*/
 
+void getPublicKey() {
+	CkPrivateKey pkey;
+
+	// Load the private key from an PEM file:
+	string privateKeyPath;
+	cout << "\nIngresa la ruta de la llave privada:"; // ./llaves/private_key.pem
+	cin >> privateKeyPath;
+	bool success = pkey.LoadPemFile(privateKeyPath.c_str());
+	if (success != true) {
+		cout << pkey.lastErrorText() << "\r\n" << flush;
+		return;
+	}
+
+	CkPublicKey* pubKey = pkey.GetPublicKey();
+	if (pkey.get_LastMethodSuccess() == false) {
+		cout << pkey.lastErrorText() << "\r\n" << flush;
+		return;
+	}
+
+	string publicKeyPath;
+	cout << "\nIngresa la ruta destino de la llave publica:"; // ./llaves/public_key.pem
+	cin >> publicKeyPath;
+	success = pubKey->SaveOpenSslPemFile(publicKeyPath.c_str());
+	if (success != true) {
+		cout << pubKey->lastErrorText() << "\r\n" << flush;
+		delete pubKey;
+		return;
+	}
+
+	cout << "\nllave publica creada con exito." << "\r\n\n" << flush;
+
+	delete pubKey;
+}
+
 static int encryptFile(const unsigned char key[crypto_secretstream_xchacha20poly1305_KEYBYTES]) {
 
 		string fileToEncryptPath;
@@ -94,9 +128,7 @@ static int encryptFile(const unsigned char key[crypto_secretstream_xchacha20poly
 		return 0;
 }
 
-
-static int
-decryptFile(const unsigned char key[crypto_secretstream_xchacha20poly1305_KEYBYTES]) {
+static int decryptFile(const unsigned char key[crypto_secretstream_xchacha20poly1305_KEYBYTES]) {
 	string fileToDecryptPath;
 	string DecryptFilePath;
 
@@ -140,7 +172,6 @@ ret:
 	fclose(fp_s);
 	return ret;
 }
-
 
 void fileSigning() {
 	// Load the private key from an PEM file:
@@ -235,8 +266,7 @@ void verifySignature() {
 		cout << "\nFirma invalida" << "\r\n\n" << flush;
 		return;
 	}
-
-	cout << "\nFirma verificada." << "\r\n\n" << flush;
+	cout << "\nFirma verificada" << "\r\n\n" << flush;
 }
 
 void Menu() {
@@ -251,7 +281,7 @@ void Menu() {
 		cin >> choice;
 		switch (choice) {
 		case 1:
-			cout << "\nYou in op 1\n\n";
+			getPublicKey();
 			system("PAUSE");
 			system("CLS");
 			break;
@@ -289,7 +319,9 @@ void Menu() {
 			cout << "\nOk, bye\n\n";
 			break;
 		default:
-			cout << "\nSelecciona una opcion valida\n\n";
+			cout << "\nSelecciona una opcion valida\n\n" << flush;
+			system("PAUSE");
+			system("CLS");
 			break;
 		}
 	} while (choice != 6);
